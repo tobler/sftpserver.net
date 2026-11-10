@@ -18,6 +18,9 @@ if (!File.Exists(keyFile)) hostKey.Save(keyFile);
 var rsaFile = Path.Combine(dataDir, "..", "interop_host_rsa.pem");
 var rsaKey = File.Exists(rsaFile) ? HostKey.Load(rsaFile) : HostKey.GenerateRsa();
 if (!File.Exists(rsaFile)) rsaKey.Save(rsaFile);
+var edFile = Path.Combine(dataDir, "..", "interop_host_ed25519.pem");
+var edKey = File.Exists(edFile) ? HostKey.Load(edFile) : HostKey.GenerateEd25519();
+if (!File.Exists(edFile)) edKey.Save(edFile);
 
 var users = new Dictionary<string, string> { ["demo"] = "demo", ["test"] = "test123" };
 
@@ -35,6 +38,7 @@ var builder = SshServer.CreateBuilder()
     .Listen(port)
     .Configure(o =>
     {
+        o.HostKeys.Add(edKey);
         o.HostKeys.Add(hostKey);
         o.HostKeys.Add(rsaKey);
         o.Logger = loggerFactory.CreateLogger("rstssh");

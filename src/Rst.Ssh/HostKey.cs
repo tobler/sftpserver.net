@@ -1,10 +1,10 @@
+using System.Formats.Asn1;
 using System.Security.Cryptography;
 using Rst.Ssh.Internal;
 
 namespace Rst.Ssh;
 
-/// <summary>Server host key. Supported: ECDSA (P-256/384/521), RSA (rsa-sha2-256/512).</summary>
-/// <remarks>Ed25519 will follow, based on the built-in Curve25519 implementation.</remarks>
+/// <summary>Server host key. Supported: Ed25519, ECDSA (P-256/384/521), RSA (rsa-sha2-256/512).</summary>
 public abstract class HostKey : IDisposable
 {
     private protected HostKey() { }
@@ -36,7 +36,9 @@ public abstract class HostKey : IDisposable
 
     public static HostKey GenerateRsa(int bits = 3072) => new RsaHostKey(RSA.Create(bits));
 
-    /// <summary>Loads a key in PEM format (PKCS#8, "BEGIN PRIVATE KEY" / "BEGIN EC PRIVATE KEY" / "BEGIN RSA PRIVATE KEY").</summary>
+    public static HostKey GenerateEd25519() => new Ed25519HostKey(Ed25519.GenerateKeyPair().Seed);
+
+    /// <summary>Loads a key in PEM format (PKCS#8 "BEGIN PRIVATE KEY" for Ed25519/ECDSA/RSA, or "BEGIN EC/RSA PRIVATE KEY").</summary>
     /// <remarks>The OpenSSH-specific format ("BEGIN OPENSSH PRIVATE KEY") will follow later.</remarks>
     public static HostKey LoadPem(string pem)
     {
@@ -45,6 +47,9 @@ public abstract class HostKey : IDisposable
 
         if (pem.Contains("RSA PRIVATE KEY")) { var r = RSA.Create(); r.ImportFromPem(pem); return new RsaHostKey(r); }
         if (pem.Contains("EC PRIVATE KEY")) { var e = ECDsa.Create(); e.ImportFromPem(pem); return new EcdsaHostKey(e); }
+
+        // Generic PKCS#8 ("BEGIN PRIVATE KEY"): .NET cannot import Ed25519, so dispatch on the algorithm OID.
+        if (Ed25519HostKey.TryImportPkcs8Pem(pem, out var ed)) return ed;
 
         try { var e = ECDsa.Create(); e.ImportFromPem(pem); return new EcdsaHostKey(e); }
         catch (CryptographicException) { var r = RSA.Create(); r.ImportFromPem(pem); return new RsaHostKey(r); }
@@ -106,6 +111,72 @@ internal sealed class EcdsaHostKey : HostKey
 
     public override string ExportPem() => _key.ExportPkcs8PrivateKeyPem();
     public override void Dispose() => _key.Dispose();
+}
+
+internal sealed class Ed25519HostKey : HostKey
+{
+    private const string Oid = "1.3.101.112";          // id-Ed25519 (RFC 8410)
+    private readonly byte[] _seed;                      // 32-byte private seed
+    private readonly byte[] _publicKey;                 // 32-byte public point
+    private readonly byte[] _blob;
+
+    public Ed25519HostKey(byte[] seed)
+    {
+        if (seed.Length != Ed25519.SeedSize) throw new ArgumentException("Ed25519 seed must be 32 bytes", nameof(seed));
+        _seed = (byte[])seed.Clone();
+        _publicKey = Ed25519.PublicKeyFromSeed(_seed);
+        _blob = new SshWriter().String(KeyType).Binary(_publicKey).ToArray();
+    }
+
+    public override string KeyType => "ssh-ed25519";
+    public override IReadOnlyList<string> SignatureAlgorithms => [KeyType];
+    public override byte[] PublicKeyBlob => _blob;
+
+    internal override byte[] Sign(string algorithm, ReadOnlySpan<byte> data) =>
+        new SshWriter().String(KeyType).Binary(Ed25519.Sign(data, _seed, _publicKey)).ToArray();
+
+    // PKCS#8 (RFC 8410): SEQUENCE { INTEGER 0, SEQUENCE { OID id-Ed25519 }, OCTET STRING { OCTET STRING seed } }.
+    public override string ExportPem()
+    {
+        var inner = new AsnWriter(AsnEncodingRules.DER);
+        inner.WriteOctetString(_seed);
+
+        var writer = new AsnWriter(AsnEncodingRules.DER);
+        using (writer.PushSequence())
+        {
+            writer.WriteInteger(0);
+            using (writer.PushSequence()) writer.WriteObjectIdentifier(Oid);
+            writer.WriteOctetString(inner.Encode());
+        }
+        return PemEncoding.WriteString("PRIVATE KEY", writer.Encode());
+    }
+
+    /// <summary>Imports an Ed25519 PKCS#8 PEM. Returns false if the PEM is not an Ed25519 "PRIVATE KEY".</summary>
+    public static bool TryImportPkcs8Pem(string pem, out HostKey key)
+    {
+        key = null!;
+        if (!PemEncoding.TryFind(pem, out var fields) || pem[fields.Label] != "PRIVATE KEY") return false;
+
+        byte[] der;
+        try { der = Convert.FromBase64String(pem[fields.Base64Data].Replace("\n", "").Replace("\r", "")); }
+        catch (FormatException) { return false; }
+
+        try
+        {
+            var seq = new AsnReader(der, AsnEncodingRules.DER).ReadSequence();
+            seq.ReadInteger();                                        // version 0
+            var oid = seq.ReadSequence().ReadObjectIdentifier();
+            if (oid != Oid) return false;
+            var seed = new AsnReader(seq.ReadOctetString(), AsnEncodingRules.DER).ReadOctetString();
+            if (seed.Length != Ed25519.SeedSize) return false;
+            key = new Ed25519HostKey(seed);
+            return true;
+        }
+        catch (AsnContentException) { return false; }
+        catch (ArgumentException) { return false; }
+    }
+
+    public override void Dispose() => CryptographicOperations.ZeroMemory(_seed);
 }
 
 internal sealed class RsaHostKey : HostKey

@@ -4,13 +4,14 @@ namespace Rst.Ssh.Internal;
 
 /// <summary>
 /// Verifies client public-key authentication signatures (RFC 4252 §7).
-/// RSA and ECDSA are handled with the .NET BCL; ssh-ed25519 support is added separately.
+/// RSA and ECDSA use the .NET BCL; ssh-ed25519 uses the built-in <see cref="Ed25519"/> implementation.
 /// </summary>
 internal static class PublicKeyAuth
 {
     /// <summary>Public-key algorithms the server accepts for authentication, in preference order.</summary>
     public static readonly string[] SupportedAlgorithms =
     [
+        "ssh-ed25519",
         "ecdsa-sha2-nistp256", "ecdsa-sha2-nistp384", "ecdsa-sha2-nistp521",
         "rsa-sha2-512", "rsa-sha2-256",
     ];
@@ -34,6 +35,9 @@ internal static class PublicKeyAuth
 
             if (keyType == algorithm && keyType.StartsWith("ecdsa-sha2-nistp", StringComparison.Ordinal))
                 return VerifyEcdsa(keyType, key, signature, signedData);
+
+            if (keyType == "ssh-ed25519" && algorithm == "ssh-ed25519")
+                return VerifyEd25519(key, signature, signedData);
 
             return false;
         }
@@ -85,6 +89,19 @@ internal static class PublicKeyAuth
         RightAlign(r, p1363.AsSpan(0, coord));
         RightAlign(s, p1363.AsSpan(coord, coord));
         return ecdsa.VerifyData(signedData, p1363, hash, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+    }
+
+    private static bool VerifyEd25519(SshReader key, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> signedData)
+    {
+        var publicKey = key.ReadBinary();                     // 32-byte Ed25519 point
+        if (publicKey.Length != Ed25519.KeySize) return false;
+
+        var r = new SshReader(signature.ToArray());
+        if (r.ReadString() != "ssh-ed25519") return false;
+        var sig = r.ReadBinary();                             // 64-byte signature (R ‖ S)
+        if (sig.Length != Ed25519.SignatureSize) return false;
+
+        return Ed25519.Verify(signedData, sig, publicKey);
     }
 
     /// <summary>Reads an SSH signature blob (string algorithm, string signature) and returns the signature bytes if the algorithm matches.</summary>

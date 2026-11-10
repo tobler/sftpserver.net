@@ -38,10 +38,10 @@ host an SFTP server, with your own authentication and your own storage behind it
 |---|---|
 | Transport | Binary packet protocol, strict KEX (Terrapin mitigation), client- and server-initiated rekey, packet size limits |
 | Key exchange | `curve25519-sha256` (+ `@libssh.org`), `ecdh-sha2-nistp256/384/521` |
-| Host keys | `ecdsa-sha2-nistp256/384/521`, `rsa-sha2-256`, `rsa-sha2-512` (PEM files) |
+| Host keys | `ssh-ed25519`, `ecdsa-sha2-nistp256/384/521`, `rsa-sha2-256`, `rsa-sha2-512` (PEM files) |
 | Ciphers | `aes128-gcm@openssh.com`, `aes256-gcm@openssh.com`, `aes128/192/256-ctr` |
 | MACs | `hmac-sha2-256`, `hmac-sha2-512`, and their `-etm@openssh.com` variants |
-| Authentication | Password and public-key (`rsa-sha2-256/512`, `ecdsa-sha2-nistp256/384/521`) via callback or `ISshAuthenticator`, attempt limit, failure delay, login timeout, partial (multi-factor) results |
+| Authentication | Password and public-key (`ssh-ed25519`, `rsa-sha2-256/512`, `ecdsa-sha2-nistp256/384/521`) via callback or `ISshAuthenticator`, attempt limit, failure delay, login timeout, partial (multi-factor) results |
 | Connection | Session channels with flow control in both directions, `subsystem`, optional `exec` |
 | SFTP | Version 3 plus `posix-rename`, `statvfs`, `fsync` and `limits` (`@openssh.com`) |
 | Extensibility | Connection events, SFTP events (with veto), ASP.NET-style middleware pipeline |
@@ -123,7 +123,7 @@ timeouts). Your application only answers *"is this allowed?"*.
 .UseAuthenticator(new MyAuthenticator())
 ```
 
-For public-key auth the library validates the signature itself (`rsa-sha2-256/512`,
+For public-key auth the library validates the signature itself (`ssh-ed25519`, `rsa-sha2-256/512`,
 `ecdsa-sha2-nistp256/384/521`); your callback receives the key's `Algorithm`, raw `Blob` and
 SHA-256 `Fingerprint` and just decides whether that key is authorized for the user. Password and
 public key can be offered together.
@@ -297,7 +297,7 @@ and SFTP security cases (path traversal, symlink escapes, read-only users).
 
 ## Roadmap
 
-1. `ssh-ed25519` public-key auth and host keys, `chacha20-poly1305@openssh.com`
+1. `chacha20-poly1305@openssh.com` cipher
 2. Post-quantum hybrid key exchange (`mlkem768x25519-sha256`) – OpenSSH ≥ 10.1 warns without it
 3. OpenSSH private key format, idle timeout, keepalive
 4. Implementation of the metadata + blob file system (IPFS)

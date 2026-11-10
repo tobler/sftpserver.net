@@ -63,13 +63,29 @@ public class PublicKeyAuthTests
     }
 
     [Fact]
+    public void Ed25519_signature_round_trips()
+    {
+        var (seed, pub) = Ed25519.GenerateKeyPair();
+        var blob = new SshWriter().String("ssh-ed25519").Binary(pub).ToArray();
+
+        var raw = Ed25519.Sign(Data, seed, pub);
+        var sig = new SshWriter().String("ssh-ed25519").Binary(raw).ToArray();
+
+        Assert.True(PublicKeyAuth.Verify("ssh-ed25519", blob, sig, Data));
+        Assert.False(PublicKeyAuth.Verify("ssh-ed25519", blob, sig, "different data"u8));   // wrong signed data
+        raw[10] ^= 0xFF;
+        var tampered = new SshWriter().String("ssh-ed25519").Binary(raw).ToArray();
+        Assert.False(PublicKeyAuth.Verify("ssh-ed25519", blob, tampered, Data));            // tampered signature
+    }
+
+    [Fact]
     public void Unsupported_algorithms_are_rejected()
     {
-        Assert.False(PublicKeyAuth.IsSupported("ssh-ed25519"));   // added in the ed25519 step
+        Assert.True(PublicKeyAuth.IsSupported("ssh-ed25519"));
         Assert.False(PublicKeyAuth.IsSupported("ssh-rsa"));       // SHA-1, intentionally not accepted
         Assert.True(PublicKeyAuth.IsSupported("rsa-sha2-256"));
         Assert.True(PublicKeyAuth.IsSupported("ecdsa-sha2-nistp256"));
-        Assert.False(PublicKeyAuth.Verify("ssh-ed25519", [1, 2, 3], [4, 5, 6], Data));
+        Assert.False(PublicKeyAuth.Verify("ssh-ed25519", [1, 2, 3], [4, 5, 6], Data));   // malformed blob
     }
 
     private static void RightPad(ReadOnlySpan<byte> value, Span<byte> destination)
