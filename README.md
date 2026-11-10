@@ -336,7 +336,7 @@ This project is **source-available** under a dual-licensing model:
 
 - **Commercial license required for larger organizations.** Organizations that exceed the
   PolyForm Small Business thresholds (e.g. annual revenue above USD 1,000,000) need a separate
-  commercial license. Please get in touch to arrange one: <tobler@rst.de>.
+  commercial license. See <https://sftp-server.net> for details and how to get in touch.
 
 Note: PolyForm Small Business is a source-available license, not an OSI-approved open-source
 license — this is by design, because the goal is to keep it free for small users while
