@@ -7,10 +7,6 @@ No native libraries and no third-party crypto: everything is built on the .NET b
 The goal is an embeddable component in the spirit of Rebex File Server: a few lines of code to
 host an SFTP server, with your own authentication and your own storage behind it.
 
-> **Status: active development.** The protocol core is tested against OpenSSH, fuzzed, and backed by an
-> extensive automated test suite. It has not yet had an independent third-party security audit — see
-> [Roadmap](#roadmap).
-
 ---
 
 ## Contents
