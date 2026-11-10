@@ -309,7 +309,7 @@ The parsers are fuzzed with SharpFuzz/libFuzzer and a cross-platform robustness 
 4. Implementation of the metadata + blob file system (IPFS)
 5. Interop with WinSCP, FileZilla, Cyberduck, SSH.NET, Paramiko; Windows server testing
 6. Independent third-party security review
-7. NuGet packaging, documentation, multi-targeting `net8.0;net10.0`
+7. A NuGet.org release and multi-targeting `net8.0;net10.0` (the package builds via `dotnet pack`)
 
 ---
 

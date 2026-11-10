@@ -5,10 +5,48 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Rst.Ssh</RootNamespace>
-    <NoWarn>CS9113</NoWarn>
+    <NoWarn>CS9113;CS1591</NoWarn>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
+
+  <!-- NuGet package metadata -->
+  <PropertyGroup>
+    <PackageId>Rst.Ssh</PackageId>
+    <Version>0.1.0</Version>
+    <Title>sftpserver.net</Title>
+    <Authors>RST</Authors>
+    <Company>RST</Company>
+    <Product>sftpserver.net</Product>
+    <Description>An embeddable SSH-2 and SFTP server for .NET. A complete, self-contained SSH/SFTP server library written in C# — no native dependencies and no third-party cryptography. Host a secure SFTP server from your own application with your own authentication and storage: password and public-key auth (Ed25519, ECDSA, RSA), SFTP v3, AES-GCM/CTR, strict KEX (Terrapin mitigation), events and an ASP.NET-style middleware pipeline.</Description>
+    <PackageTags>ssh;sftp;sftp-server;ssh-server;secure-file-transfer;file-transfer;server;networking;ed25519;dotnet</PackageTags>
+    <Copyright>Copyright © RST</Copyright>
+    <PackageProjectUrl>https://sftp-server.net</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/tobler/sftpserver.net</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <!-- Source-available (PolyForm Small Business) + commercial; see LICENSE. -->
+  </PropertyGroup>
+
+  <!-- Deterministic, debuggable builds with SourceLink and a symbol package -->
+  <PropertyGroup>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
     <PackageReference Include="System.IO.Pipelines" Version="8.0.0" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <!-- Files shipped inside the package -->
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>
