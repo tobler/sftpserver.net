@@ -392,10 +392,15 @@ public sealed class LocalFileSystem : ISftpFileSystem
                 throw new SftpException(SftpStatus.PermissionDenied, "Symbolic links are not allowed");
 
             var resolved = info.ResolveLinkTarget(returnFinalTarget: true);
-            if (resolved is null || !IsWithinRoot(Path.GetFullPath(resolved.FullName)))
+            // ResolveLinkTarget does not canonicalize symlinks in the target's path prefix
+            // (e.g. on macOS /var -> /private/var). Run it through RealPath so the comparison
+            // uses the same canonical form as _root; otherwise a link that stays inside the
+            // root is wrongly rejected whenever the root sits under a symlinked path.
+            var resolvedReal = resolved is null ? null : RealPath(Path.GetFullPath(resolved.FullName));
+            if (resolvedReal is null || !IsWithinRoot(resolvedReal))
                 throw new SftpException(SftpStatus.PermissionDenied, "Link points outside the shared directory");
 
-            current = Path.GetFullPath(resolved.FullName);
+            current = resolvedReal;
         }
 
         current = Path.GetFullPath(current);
