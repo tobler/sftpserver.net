@@ -547,13 +547,52 @@ internal sealed partial class SshSession : ISshSession
                 }
                 break;
 
+            case "publickey" when allowed.HasFlag(SshAuthMethods.PublicKey):
+            {
+                var hasSignature = r.ReadBoolean();
+                var algorithm = r.ReadAscii();
+                var keyBlob = r.ReadBinaryArray();
+
+                if (!PublicKeyAuth.IsSupported(algorithm))
+                {
+                    // Unknown/unaccepted algorithm: tell the client to try another key, not a failed attempt.
+                    await SendAuthFailureAsync(allowed, partial: false, ct);
+                    return;
+                }
+
+                var publicKey = new SshPublicKey(algorithm, keyBlob, PublicKeyFingerprint(keyBlob));
+
+                if (!hasSignature)
+                {
+                    // Query phase (RFC 4252 §7): would this key be accepted? If so, ask the client to sign.
+                    var probe = await SafeAuthenticatePublicKeyAsync(authenticator, ctx, publicKey, ct);
+                    if (probe is AuthResult.SuccessResult)
+                        await SendAsync(new SshWriter().Byte(SshMessage.UserAuthPkOk).String(algorithm).Binary(keyBlob), ct);
+                    else
+                        await SendAuthFailureAsync(allowed, partial: false, ct);
+                    return;
+                }
+
+                attempted = SshAuthMethods.PublicKey;
+                var signature = r.ReadBinaryArray();
+                var signedData = BuildPublicKeySignedData(userName, algorithm, keyBlob);
+                if (!PublicKeyAuth.Verify(algorithm, keyBlob, signature, signedData))
+                {
+                    // A present-but-invalid signature is a genuine failed attempt.
+                    result = AuthResult.Failure;
+                    break;
+                }
+                result = await SafeAuthenticatePublicKeyAsync(authenticator, ctx, publicKey, ct);
+                break;
+            }
+
             case "none":
                 // Client asks which methods exist – not a failed attempt.
                 await SendAuthFailureAsync(allowed, partial: false, ct);
                 return;
 
             default:
-                // publickey / keyboard-interactive will follow; not counted as a failed attempt
+                // keyboard-interactive and unoffered methods: not counted as a failed attempt
                 await SendAuthFailureAsync(allowed, partial: false, ct);
                 return;
         }
@@ -582,6 +621,32 @@ internal sealed partial class SshSession : ISshSession
                 return;
         }
     }
+
+    private async ValueTask<AuthResult> SafeAuthenticatePublicKeyAsync(ISshAuthenticator authenticator, AuthContext ctx, SshPublicKey key, CancellationToken ct)
+    {
+        try { return await authenticator.AuthenticatePublicKeyAsync(ctx, key, ct); }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            _log.LogError(e, "[{Id}] Authenticator threw an exception", Id);
+            return AuthResult.Failure;
+        }
+    }
+
+    /// <summary>The data the client signs for publickey auth (RFC 4252 §7).</summary>
+    private byte[] BuildPublicKeySignedData(string userName, string algorithm, byte[] keyBlob) =>
+        new SshWriter()
+            .Binary(_sessionId!)
+            .Byte(SshMessage.UserAuthRequest)
+            .String(userName)
+            .String("ssh-connection")
+            .String("publickey")
+            .Boolean(true)
+            .String(algorithm)
+            .Binary(keyBlob)
+            .ToArray();
+
+    private static string PublicKeyFingerprint(byte[] blob) =>
+        "SHA256:" + Convert.ToBase64String(SHA256.HashData(blob)).TrimEnd('=');
 
     private ValueTask SendAuthFailureAsync(SshAuthMethods methods, bool partial, CancellationToken ct)
     {

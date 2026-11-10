@@ -41,7 +41,7 @@ host an SFTP server, with your own authentication and your own storage behind it
 | Host keys | `ecdsa-sha2-nistp256/384/521`, `rsa-sha2-256`, `rsa-sha2-512` (PEM files) |
 | Ciphers | `aes128-gcm@openssh.com`, `aes256-gcm@openssh.com`, `aes128/192/256-ctr` |
 | MACs | `hmac-sha2-256`, `hmac-sha2-512`, and their `-etm@openssh.com` variants |
-| Authentication | Password via callback or `ISshAuthenticator`, attempt limit, failure delay, login timeout, partial (multi-factor) results |
+| Authentication | Password and public-key (`rsa-sha2-256/512`, `ecdsa-sha2-nistp256/384/521`) via callback or `ISshAuthenticator`, attempt limit, failure delay, login timeout, partial (multi-factor) results |
 | Connection | Session channels with flow control in both directions, `subsystem`, optional `exec` |
 | SFTP | Version 3 plus `posix-rename`, `statvfs`, `fsync` and `limits` (`@openssh.com`) |
 | Extensibility | Connection events, SFTP events (with veto), ASP.NET-style middleware pipeline |
@@ -116,9 +116,17 @@ timeouts). Your application only answers *"is this allowed?"*.
 // Async, with context (remote IP, client version, session) – e.g. for a database lookup
 .UsePasswordAuthentication(async ctx => await db.CheckPasswordAsync(ctx.UserName, ctx.Password, ctx.RemoteEndPoint))
 
+// Public key: the library verifies the signature, you only decide whether the key belongs to the user
+.UsePublicKeyAuthentication((user, key) => authorizedKeys.Contains((user, key.Fingerprint)))
+
 // Full control: implement ISshAuthenticator (methods per user, multi-factor via AuthResult.Partial, custom claims)
 .UseAuthenticator(new MyAuthenticator())
 ```
+
+For public-key auth the library validates the signature itself (`rsa-sha2-256/512`,
+`ecdsa-sha2-nistp256/384/521`); your callback receives the key's `Algorithm`, raw `Blob` and
+SHA-256 `Fingerprint` and just decides whether that key is authorized for the user. Password and
+public key can be offered together.
 
 A successful login yields a `ClaimsPrincipal` (`session.User`) that you can use to pick the user's file system.
 
@@ -244,7 +252,7 @@ Rst.Ssh        Connection layer   channels, window/flow control, subsystem & exe
   oversized packets close the connection.
 - **SFTP paths** are normalized centrally (`SftpPath`), so `..` can never leave the user's root.
 
-Known gaps: no fuzzing yet, no third-party review, no public-key authentication, no idle timeout.
+Known gaps: no fuzzing yet, no third-party review, no idle timeout.
 A local process could swap a symlink between check and use in `LocalFileSystem` (TOCTOU); this only
 matters if other local users can write into the SFTP root – SFTP clients cannot create symlinks.
 
@@ -289,7 +297,7 @@ and SFTP security cases (path traversal, symlink escapes, read-only users).
 
 ## Roadmap
 
-1. Public-key authentication, `ssh-ed25519` host keys, `chacha20-poly1305@openssh.com`
+1. `ssh-ed25519` public-key auth and host keys, `chacha20-poly1305@openssh.com`
 2. Post-quantum hybrid key exchange (`mlkem768x25519-sha256`) – OpenSSH ≥ 10.1 warns without it
 3. OpenSSH private key format, idle timeout, keepalive
 4. Implementation of the metadata + blob file system (IPFS)

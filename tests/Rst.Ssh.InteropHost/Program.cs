@@ -21,6 +21,16 @@ if (!File.Exists(rsaFile)) rsaKey.Save(rsaFile);
 
 var users = new Dictionary<string, string> { ["demo"] = "demo", ["test"] = "test123" };
 
+// Authorized public keys (OpenSSH authorized_keys format: "<type> <base64 blob> [comment]").
+var authorizedKeysFile = Path.Combine(dataDir, "..", "authorized_keys");
+var authorizedBlobs = new HashSet<string>(StringComparer.Ordinal);
+if (File.Exists(authorizedKeysFile))
+    foreach (var line in File.ReadAllLines(authorizedKeysFile))
+    {
+        var fields = line.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (fields.Length >= 2) authorizedBlobs.Add(fields[1]);   // the base64 key blob
+    }
+
 var builder = SshServer.CreateBuilder()
     .Listen(port)
     .Configure(o =>
@@ -32,6 +42,7 @@ var builder = SshServer.CreateBuilder()
         if (Environment.GetEnvironmentVariable("REKEY_BYTES") is { } rk) o.RekeyAfterBytes = long.Parse(rk);
     })
     .UsePasswordAuthentication((u, p) => users.TryGetValue(u, out var pw) && pw == p)
+    .UsePublicKeyAuthentication((user, key) => authorizedBlobs.Contains(Convert.ToBase64String(key.Blob.Span)))
     .UseExecHandler(new TestExec());
 
 if (Environment.GetEnvironmentVariable("NO_SFTP") is null)
