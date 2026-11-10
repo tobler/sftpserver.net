@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Rst.Ssh.Fuzz</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <!-- SharpFuzz needs the parser assembly un-trimmed and with full debug info for instrumentation. -->
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SharpFuzz" Version="2.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Rst.Ssh/Rst.Ssh.csproj" />
+  </ItemGroup>
+
+</Project>

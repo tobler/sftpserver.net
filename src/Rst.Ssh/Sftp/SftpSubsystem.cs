@@ -562,7 +562,7 @@ internal sealed class SftpSubsystem(SftpOptions options) : ISshSubsystemHandler
         return SendAsync(w, ct);
     }
 
-    private static SftpAttributes ReadAttrs(SshReader r)
+    internal static SftpAttributes ReadAttrs(SshReader r)    // internal (not private) so the fuzz harness can target it
     {
         var flags = (AttrFlags)r.ReadUInt32();
         long? size = flags.HasFlag(AttrFlags.Size) ? (long)r.ReadUInt64() : null;

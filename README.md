@@ -7,9 +7,9 @@ No native libraries and no third-party crypto: everything is built on the .NET b
 The goal is an embeddable component in the spirit of Rebex File Server: a few lines of code to
 host an SFTP server, with your own authentication and your own storage behind it.
 
-> **Status: early development.** The protocol core works and is tested against OpenSSH, but the
-> library has not been security-audited or fuzzed yet. Do not expose
-> it to the internet in production yet. See [Roadmap](#roadmap).
+> **Status: active development.** The protocol core is tested against OpenSSH, fuzzed, and backed by an
+> extensive automated test suite. It has not yet had an independent third-party security audit — see
+> [Roadmap](#roadmap).
 
 ---
 
@@ -251,8 +251,11 @@ Rst.Ssh        Connection layer   channels, window/flow control, subsystem & exe
 - **MACs** are compared in constant time; packet lengths, padding and channel windows are validated, and
   oversized packets close the connection.
 - **SFTP paths** are normalized centrally (`SftpPath`), so `..` can never leave the user's root.
+- **Parsers are fuzzed:** the SSH wire reader, SFTP attribute and path parsers and public-key
+  verification run under SharpFuzz/libFuzzer, and a cross-platform robustness suite feeds tens of
+  thousands of random and malformed inputs per parser on every test run (`tests/Rst.Ssh.Fuzz`).
 
-Known gaps: no fuzzing yet, no third-party review, no idle timeout.
+Known gaps: no independent third-party security review yet, no idle timeout.
 A local process could swap a symlink between check and use in `LocalFileSystem` (TOCTOU); this only
 matters if other local users can write into the SFTP root – SFTP clients cannot create symlinks.
 
@@ -293,6 +296,9 @@ Covered so far: every KEX × cipher × MAC × host-key combination, wrong passwo
 20 parallel connections, malformed input (non-SSH clients, SSH-1, garbage packets, huge length fields),
 and SFTP security cases (path traversal, symlink escapes, read-only users).
 
+The parsers are fuzzed with SharpFuzz/libFuzzer and a cross-platform robustness suite runs on every
+`dotnet test` — see [`tests/Rst.Ssh.Fuzz/README.md`](tests/Rst.Ssh.Fuzz/README.md).
+
 ---
 
 ## Roadmap
@@ -302,7 +308,7 @@ and SFTP security cases (path traversal, symlink escapes, read-only users).
 3. OpenSSH private key format, idle timeout, keepalive
 4. Implementation of the metadata + blob file system (IPFS)
 5. Interop with WinSCP, FileZilla, Cyberduck, SSH.NET, Paramiko; Windows server testing
-6. Fuzzing (SharpFuzz) of the packet and SFTP parsers, external security review
+6. Independent third-party security review
 7. NuGet packaging, documentation, multi-targeting `net8.0;net10.0`
 
 ---
@@ -320,6 +326,7 @@ src/Rst.Ssh/                 the library
 samples/Rst.Ssh.Demo/        demo server: local file system, users in a dictionary, all events
 tests/Rst.Ssh.Tests/         unit tests
 tests/Rst.Ssh.InteropHost/   test server for interop tests against real clients
+tests/Rst.Ssh.Fuzz/          SharpFuzz harness + targets for the SSH/SFTP parsers
 tests/Rst.Ssh.Bench/         micro benchmarks and timing check
 ```
 

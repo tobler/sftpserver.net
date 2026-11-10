@@ -24,6 +24,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Rst.Ssh\Rst.Ssh.csproj" />
+    <!-- Reuse the exact fuzz targets for the cross-platform robustness tests. -->
+    <ProjectReference Include="..\Rst.Ssh.Fuzz\Rst.Ssh.Fuzz.csproj" />
   </ItemGroup>
 
 </Project>
