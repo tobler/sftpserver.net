@@ -325,4 +325,20 @@ tests/Rst.Ssh.Bench/         micro benchmarks and timing check
 
 ## License
 
-Not decided yet (commercial, open source or dual licensing). Until then: all rights reserved.
+This project is **source-available** under a dual-licensing model:
+
+- **Free for personal use and small businesses** under the
+  [PolyForm Small Business License 1.0.0](https://polyformproject.org/licenses/small-business/1.0.0)
+  (see [`LICENSE`](LICENSE)). In short, you may use the software free of charge — including
+  commercially — as long as your organization stays under the license's size thresholds
+  (roughly: a small business by headcount and annual revenue). The exact, binding thresholds
+  and conditions are defined in the license text itself.
+
+- **Commercial license required for larger organizations.** Organizations that exceed the
+  PolyForm Small Business thresholds (e.g. annual revenue above USD 1,000,000) need a separate
+  commercial license. Please get in touch to arrange one: <tobler@rst.de>.
+
+Note: PolyForm Small Business is a source-available license, not an OSI-approved open-source
+license — this is by design, because the goal is to keep it free for small users while
+requiring larger companies to contribute. This section is a summary for convenience; the
+[`LICENSE`](LICENSE) file governs. It is not legal advice.
