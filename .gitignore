@@ -7,3 +7,6 @@ TestResults/
 # Laufzeitdaten der Demo/Testhosts
 sftp-data/
 *.pem
+
+# macOS
+.DS_Store

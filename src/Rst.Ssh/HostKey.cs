@@ -67,6 +67,7 @@ public abstract class HostKey : IDisposable
 internal sealed class EcdsaHostKey : HostKey
 {
     private readonly ECDsa _key;
+    private readonly object _signLock = new();    // ECDsa instances are not thread-safe for concurrent signing
     private readonly string _curve;           // nistp256 …
     private readonly HashAlgorithmName _hash;
     private readonly byte[] _blob;
@@ -95,7 +96,9 @@ internal sealed class EcdsaHostKey : HostKey
 
     internal override byte[] Sign(string algorithm, ReadOnlySpan<byte> data)
     {
-        var sig = _key.SignData(data, _hash, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        byte[] sig;
+        lock (_signLock)
+            sig = _key.SignData(data, _hash, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
         var half = sig.Length / 2;
         var inner = new SshWriter().MPIntFromUnsigned(sig.AsSpan(0, half)).MPIntFromUnsigned(sig.AsSpan(half)).ToArray();
         return new SshWriter().String(KeyType).Binary(inner).ToArray();
@@ -108,6 +111,7 @@ internal sealed class EcdsaHostKey : HostKey
 internal sealed class RsaHostKey : HostKey
 {
     private readonly RSA _key;
+    private readonly object _signLock = new();    // RSA instances are not thread-safe for concurrent signing
     private readonly byte[] _blob;
 
     public RsaHostKey(RSA key)
@@ -130,7 +134,9 @@ internal sealed class RsaHostKey : HostKey
             "rsa-sha2-512" => HashAlgorithmName.SHA512,
             _ => throw new SshProtocolException($"RSA signature algorithm {algorithm} is not supported"),
         };
-        var sig = _key.SignData(data, hash, RSASignaturePadding.Pkcs1);
+        byte[] sig;
+        lock (_signLock)
+            sig = _key.SignData(data, hash, RSASignaturePadding.Pkcs1);
         return new SshWriter().String(algorithm).Binary(sig).ToArray();
     }
 
