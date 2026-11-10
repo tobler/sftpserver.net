@@ -35,7 +35,7 @@ host an SFTP server, with your own authentication and your own storage behind it
 | Transport | Binary packet protocol, strict KEX (Terrapin mitigation), client- and server-initiated rekey, packet size limits |
 | Key exchange | `curve25519-sha256` (+ `@libssh.org`), `ecdh-sha2-nistp256/384/521` |
 | Host keys | `ssh-ed25519`, `ecdsa-sha2-nistp256/384/521`, `rsa-sha2-256`, `rsa-sha2-512` (PEM files) |
-| Ciphers | `aes128-gcm@openssh.com`, `aes256-gcm@openssh.com`, `aes128/192/256-ctr` |
+| Ciphers | `chacha20-poly1305@openssh.com`, `aes128-gcm@openssh.com`, `aes256-gcm@openssh.com`, `aes128/192/256-ctr` |
 | MACs | `hmac-sha2-256`, `hmac-sha2-512`, and their `-etm@openssh.com` variants |
 | Authentication | Password and public-key (`ssh-ed25519`, `rsa-sha2-256/512`, `ecdsa-sha2-nistp256/384/521`) via callback or `ISshAuthenticator`, attempt limit, failure delay, login timeout, partial (multi-factor) results |
 | Connection | Session channels with flow control in both directions, `subsystem`, optional `exec` |
@@ -299,13 +299,12 @@ The parsers are fuzzed with SharpFuzz/libFuzzer and a cross-platform robustness 
 
 ## Roadmap
 
-1. `chacha20-poly1305@openssh.com` cipher
-2. Post-quantum hybrid key exchange (`mlkem768x25519-sha256`) – OpenSSH ≥ 10.1 warns without it
-3. OpenSSH private key format, idle timeout, keepalive
-4. Implementation of the metadata + blob file system (IPFS)
-5. Interop with WinSCP, FileZilla, Cyberduck, SSH.NET, Paramiko; Windows server testing
-6. Independent third-party security review
-7. A NuGet.org release and multi-targeting `net8.0;net10.0` (the package builds via `dotnet pack`)
+1. Post-quantum hybrid key exchange (`mlkem768x25519-sha256`) – OpenSSH ≥ 10.1 warns without it
+2. OpenSSH private key format, idle timeout, keepalive
+3. Implementation of the metadata + blob file system (IPFS)
+4. Interop with WinSCP, FileZilla, Cyberduck, SSH.NET, Paramiko; Windows server testing
+5. Independent third-party security review
+6. A NuGet.org release and multi-targeting `net8.0;net10.0` (the package builds via `dotnet pack`)
 
 ---
 

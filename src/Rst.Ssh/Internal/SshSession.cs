@@ -335,10 +335,10 @@ internal sealed partial class SshSession : ISshSession
         var chosenEncSc = Internal.Algorithms.Negotiate(encSc, serverCiphers)
             ?? throw new SshProtocolException("No common cipher (server→client)", SshDisconnectReason.KeyExchangeFailed);
         string? chosenMacCs = null, chosenMacSc = null;
-        if (!Internal.Algorithms.IsAead(chosenEncCs))
+        if (!Internal.Algorithms.HasImplicitMac(chosenEncCs))
             chosenMacCs = Internal.Algorithms.Negotiate(macCs, serverMacs)
                 ?? throw new SshProtocolException("No common MAC (client→server)", SshDisconnectReason.KeyExchangeFailed);
-        if (!Internal.Algorithms.IsAead(chosenEncSc))
+        if (!Internal.Algorithms.HasImplicitMac(chosenEncSc))
             chosenMacSc = Internal.Algorithms.Negotiate(macSc, serverMacs)
                 ?? throw new SshProtocolException("No common MAC (server→client)", SshDisconnectReason.KeyExchangeFailed);
         if (!compCs.Contains("none") || !compSc.Contains("none"))
@@ -469,6 +469,9 @@ internal sealed partial class SshSession : ISshSession
 
         if (Internal.Algorithms.IsAead(cipher))
             return new DirectionKeys { Cipher = cipher, Gcm = new AesGcm(key, 16), GcmIv = iv };
+
+        if (Internal.Algorithms.IsChaChaPoly(cipher))
+            return new DirectionKeys { Cipher = cipher, ChaChaPoly = new ChaCha20Poly1305Cipher(key) };
 
         var (macHash, macLength, etm) = Internal.Algorithms.MacInfo(mac!);
         var macKey = DeriveKey(hash, k, h, macLetter, macLength);

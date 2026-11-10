@@ -19,6 +19,7 @@ internal static class Algorithms
 
     public static readonly string[] Encryption =
     [
+        "chacha20-poly1305@openssh.com",
         "aes256-gcm@openssh.com", "aes128-gcm@openssh.com", "aes256-ctr", "aes192-ctr", "aes128-ctr",
     ];
 
@@ -31,6 +32,11 @@ internal static class Algorithms
 
     public static bool IsAead(string cipher) => cipher.EndsWith("-gcm@openssh.com", StringComparison.Ordinal);
 
+    public static bool IsChaChaPoly(string cipher) => cipher == "chacha20-poly1305@openssh.com";
+
+    /// <summary>Ciphers that authenticate on their own, so no separate MAC is negotiated (RFC 5647 / AEAD).</summary>
+    public static bool HasImplicitMac(string cipher) => IsAead(cipher) || IsChaChaPoly(cipher);
+
     public static (int KeyLength, int IvLength) CipherSizes(string cipher) => cipher switch
     {
         "aes128-ctr" => (16, 16),
@@ -38,6 +44,7 @@ internal static class Algorithms
         "aes256-ctr" => (32, 16),
         "aes128-gcm@openssh.com" => (16, 12),
         "aes256-gcm@openssh.com" => (32, 12),
+        "chacha20-poly1305@openssh.com" => (64, 0),
         _ => throw new SshProtocolException($"Unknown cipher {cipher}"),
     };
 

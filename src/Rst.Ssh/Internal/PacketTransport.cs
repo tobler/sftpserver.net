@@ -11,16 +11,20 @@ internal sealed class DirectionKeys : IDisposable
     public AesCtr? Ctr { get; init; }
     public AesGcm? Gcm { get; init; }
     public byte[]? GcmIv { get; init; }
+    public ChaCha20Poly1305Cipher? ChaChaPoly { get; init; }
     public IncrementalHash? Mac { get; init; }
     public int MacLength { get; init; }
     public bool Etm { get; init; }
 
     public bool IsAead => Gcm is not null;
-    public int BlockSize => 16;
-    public int TagLength => IsAead ? 16 : MacLength;
-    public bool LengthInClear => IsAead || Etm;
+    public bool IsChaChaPoly => ChaChaPoly is not null;
+    public int BlockSize => IsChaChaPoly ? 8 : 16;
+    public int TagLength => IsAead || IsChaChaPoly ? 16 : MacLength;
 
-    public void Dispose() { Ctr?.Dispose(); Gcm?.Dispose(); Mac?.Dispose(); }
+    /// <summary>The 4-byte length is handled separately (AEAD/ETM) instead of as the first cipher block.</summary>
+    public bool LengthSeparate => IsAead || IsChaChaPoly || Etm;
+
+    public void Dispose() { Ctr?.Dispose(); Gcm?.Dispose(); ChaChaPoly?.Dispose(); Mac?.Dispose(); }
 }
 
 /// <summary>
@@ -108,10 +112,10 @@ internal sealed class PacketTransport : IAsyncDisposable
     {
         var keys = _out;
         var blockSize = keys?.BlockSize ?? 8;
-        var lengthInClear = keys?.LengthInClear ?? false;
+        var lengthSeparate = keys?.LengthSeparate ?? false;
         var tagLength = keys?.TagLength ?? 0;
 
-        var unpadded = 1 + payload.Length + (lengthInClear ? 0 : 4);
+        var unpadded = 1 + payload.Length + (lengthSeparate ? 0 : 4);
         var padding = blockSize - unpadded % blockSize;
         if (padding < 4) padding += blockSize;
         var packetLength = 1 + payload.Length + padding;
@@ -126,6 +130,10 @@ internal sealed class PacketTransport : IAsyncDisposable
         if (keys is null)
         {
             // Plaintext before the first NEWKEYS.
+        }
+        else if (keys.IsChaChaPoly)
+        {
+            keys.ChaChaPoly!.Encrypt(_seqOut, buffer);     // [length | body | tag], all in place
         }
         else if (keys.IsAead)
         {
@@ -155,7 +163,21 @@ internal sealed class PacketTransport : IAsyncDisposable
         var tagLength = keys?.TagLength ?? 0;
 
         byte[] packet;      // 4-byte length + plaintext (padlen, payload, padding)
-        if (keys is not null && keys.LengthInClear)
+        if (keys is not null && keys.IsChaChaPoly)
+        {
+            var encLen = new byte[4];
+            if (!await ReadExactAsync(encLen, ct)) return null;
+            var length = ValidateLength(keys.ChaChaPoly!.DecryptLength(_seqIn, encLen), blockSize, lengthIncluded: false);
+
+            var rest = new byte[length + tagLength];       // encrypted body + Poly1305 tag
+            if (!await ReadExactAsync(rest, ct)) throw new EndOfStreamException();
+
+            packet = new byte[4 + length];
+            BinaryPrimitives.WriteUInt32BigEndian(packet, (uint)length);
+            if (!keys.ChaChaPoly.VerifyAndDecryptBody(_seqIn, encLen, rest.AsSpan(0, length), rest.AsSpan(length, tagLength), packet.AsSpan(4)))
+                throw new SshProtocolException("Packet authentication failed (chacha20-poly1305)", SshDisconnectReason.MacError);
+        }
+        else if (keys is not null && keys.LengthSeparate)
         {
             var lenBytes = new byte[4];
             if (!await ReadExactAsync(lenBytes, ct)) return null;
