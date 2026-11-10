@@ -1,0 +1,8 @@
+**/bin/
+**/obj/
+.git/
+.vs/
+.idea/
+*.user
+tests/Rst.Ssh.Fuzz/findings/
+tests/Rst.Ssh.Fuzz/corpus/**/crash-*
