@@ -8,7 +8,7 @@ The goal is an embeddable component in the spirit of Rebex File Server: a few li
 host an SFTP server, with your own authentication and your own storage behind it.
 
 > **Status: early development.** The protocol core works and is tested against OpenSSH, but the
-> library has not been security-audited, fuzzed or tested with Windows clients yet. Do not expose
+> library has not been security-audited or fuzzed yet. Do not expose
 > it to the internet in production yet. See [Roadmap](#roadmap).
 
 ---
