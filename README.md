@@ -312,10 +312,8 @@ The parsers are fuzzed with SharpFuzz/libFuzzer and a cross-platform robustness 
 ## Roadmap
 
 1. Passphrase-protected OpenSSH keys (bcrypt KDF)
-2. Implementation of the metadata + blob file system (IPFS)
-3. Interop with WinSCP, FileZilla, Cyberduck, SSH.NET, Paramiko
-4. Independent third-party security review
-5. A NuGet.org release and multi-targeting `net8.0;net10.0` (the package builds via `dotnet pack`)
+2. Independent third-party security review
+3. A NuGet.org release (the package multi-targets `net8.0;net10.0` and builds via `dotnet pack`)
 
 ---
 

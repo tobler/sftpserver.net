@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <!-- Produkt: net8.0;net10.0 -->
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Rst.Ssh</RootNamespace>
@@ -17,8 +16,8 @@
     <Authors>RST</Authors>
     <Company>RST</Company>
     <Product>sftpserver.net</Product>
-    <Description>An embeddable SSH-2 and SFTP server for .NET. A complete, self-contained SSH/SFTP server library written in C# — no native dependencies and no third-party cryptography. Host a secure SFTP server from your own application with your own authentication and storage: password and public-key auth (Ed25519, ECDSA, RSA), SFTP v3, AES-GCM/CTR, strict KEX (Terrapin mitigation), events and an ASP.NET-style middleware pipeline.</Description>
-    <PackageTags>ssh;sftp;sftp-server;ssh-server;secure-file-transfer;file-transfer;server;networking;ed25519;dotnet</PackageTags>
+    <Description>An embeddable SSH-2 and SFTP server for .NET. A complete, self-contained SSH/SFTP server library written in C# — no native dependencies and no third-party cryptography. Host a secure SFTP server from your own application with your own authentication and storage: password and public-key auth (Ed25519, ECDSA, RSA), SFTP v3, chacha20-poly1305 and AES-GCM/CTR ciphers, post-quantum hybrid key exchange (mlkem768x25519-sha256, FIPS 203 / RFC 10042), strict KEX (Terrapin mitigation), keepalive and idle timeout, events and an ASP.NET-style middleware pipeline.</Description>
+    <PackageTags>ssh;sftp;sftp-server;ssh-server;secure-file-transfer;file-transfer;server;networking;ed25519;chacha20-poly1305;post-quantum;mlkem;dotnet</PackageTags>
     <Copyright>Copyright © RST</Copyright>
     <PackageProjectUrl>https://sftp-server.net</PackageProjectUrl>
     <RepositoryUrl>https://github.com/tobler/sftpserver.net</RepositoryUrl>
@@ -41,7 +40,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
     <PackageReference Include="System.IO.Pipelines" Version="8.0.0" />
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+    <!-- SourceLink is built into the .NET 8+ SDK; the standalone package is unnecessary (and pulled a flagged transitive). -->
   </ItemGroup>
 
   <!-- Files shipped inside the package -->
