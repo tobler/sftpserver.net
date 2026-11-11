@@ -1,0 +1,47 @@
+name: release
+
+# Publishes the NuGet package when a version tag is pushed, e.g.:
+#   git tag v0.1.0 && git push origin v0.1.0
+# Requires a repository secret NUGET_API_KEY (Settings → Secrets and variables → Actions).
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # SourceLink embeds the full git history
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      # The tag drives the package version: v0.1.0 -> 0.1.0.
+      - name: Build
+        run: dotnet build -c Release --no-restore -p:Version="${GITHUB_REF_NAME#v}"
+
+      - name: Test
+        run: dotnet test tests/Rst.Ssh.Tests/Rst.Ssh.Tests.csproj -c Release --no-build
+
+      - name: Pack
+        run: dotnet pack src/Rst.Ssh/Rst.Ssh.csproj -c Release --no-build -o artifacts -p:Version="${GITHUB_REF_NAME#v}"
+
+      - name: Push to NuGet.org
+        run: >
+          dotnet nuget push "artifacts/*.nupkg"
+          --api-key "${{ secrets.NUGET_API_KEY }}"
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate
