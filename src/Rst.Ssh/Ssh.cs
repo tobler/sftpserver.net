@@ -233,6 +233,22 @@ public sealed class SshServerOptions
     /// <summary>Rekey after this many bytes (RFC 4253 §9).</summary>
     public long RekeyAfterBytes { get; set; } = 1L << 30;
 
+    /// <summary>
+    /// After this much silence from the client, send a <c>keepalive@openssh.com</c> request to detect a
+    /// dead connection (and keep NAT/firewall state alive). <see cref="TimeSpan.Zero"/> disables it.
+    /// </summary>
+    public TimeSpan KeepAliveInterval { get; set; } = TimeSpan.Zero;
+
+    /// <summary>Disconnect once this many keepalive probes go unanswered in a row (OpenSSH ClientAliveCountMax).</summary>
+    public int KeepAliveCountMax { get; set; } = 3;
+
+    /// <summary>
+    /// Disconnect an authenticated session with no channel data in either direction for this long.
+    /// <see cref="TimeSpan.Zero"/> disables it. Independent of <see cref="KeepAliveInterval"/>: a client that
+    /// faithfully answers keepalives is still dropped once it has been idle this long.
+    /// </summary>
+    public TimeSpan IdleTimeout { get; set; } = TimeSpan.Zero;
+
     public ILogger? Logger { get; set; }
     public SshServerEvents Events { get; } = new();
 }

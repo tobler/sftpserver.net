@@ -38,9 +38,18 @@ internal sealed partial class SshSession : ISshSession
     private int _failedAuthAttempts;
     private CancellationTokenSource? _authTimeout;
 
+    // Liveness (keepalive) and idle tracking – all in Environment.TickCount64 milliseconds.
+    private long _lastReceivedTicks = Environment.TickCount64;      // any inbound packet
+    private long _lastActivityTicks = Environment.TickCount64;      // channel data in either direction
+    private long _lastProbeTicks;
+    private int _keepalivesOutstanding;
+
     // Outcome
     private DisconnectInitiator _initiator = DisconnectInitiator.Client;
     private string? _disconnectMessage;
+
+    /// <summary>Records real channel traffic so the idle timeout only fires on genuinely idle sessions.</summary>
+    internal void NoteActivity() => _lastActivityTicks = Environment.TickCount64;
 
     public SshSession(SshServer server, Stream stream, IPEndPoint remote, IPEndPoint local)
     {
@@ -92,6 +101,7 @@ internal sealed partial class SshSession : ISshSession
             if (User is null) _ = TimeoutAsync();
         });
         var ct = linked.Token;
+        var monitor = Task.Run(() => MonitorAsync(ct), CancellationToken.None);
 
         try
         {
@@ -105,6 +115,9 @@ internal sealed partial class SshSession : ISshSession
             {
                 var payload = await _transport.ReadPacketAsync(ct);
                 if (payload is null) { _initiator = DisconnectInitiator.Client; break; }
+
+                _lastReceivedTicks = Environment.TickCount64;      // peer is alive
+                _keepalivesOutstanding = 0;
                 await DispatchAsync(payload, ct);
 
                 if (_initialKexDone && !_outgoingKex &&
@@ -140,6 +153,7 @@ internal sealed partial class SshSession : ISshSession
         finally
         {
             _closed.Cancel();
+            await monitor.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
             await CloseAllChannelsAsync();
             await _transport.DisposeAsync();
             _authTimeout.Dispose();
@@ -154,6 +168,54 @@ internal sealed partial class SshSession : ISshSession
         _log.LogInformation("[{Id}] Authentication timeout", Id);
         await DisconnectAsync(SshDisconnectReason.ByApplication, "Authentication timed out");
         _initiator = DisconnectInitiator.Timeout;
+    }
+
+    /// <summary>
+    /// Background watchdog for the keepalive probe / dead-peer detection and the idle timeout.
+    /// Only active once the client is authenticated – the pre-auth phase is bounded by AuthenticationTimeout.
+    /// </summary>
+    private async Task MonitorAsync(CancellationToken ct)
+    {
+        var keepAlive = _options.KeepAliveInterval;
+        var idle = _options.IdleTimeout;
+        if (keepAlive <= TimeSpan.Zero && idle <= TimeSpan.Zero) return;
+
+        var keepAliveMs = keepAlive > TimeSpan.Zero ? keepAlive.TotalMilliseconds : double.PositiveInfinity;
+        var idleMs = idle > TimeSpan.Zero ? idle.TotalMilliseconds : double.PositiveInfinity;
+
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(1));
+            while (await timer.WaitForNextTickAsync(ct))
+            {
+                if (User is null) continue;                 // pre-auth: AuthenticationTimeout governs
+                var now = Environment.TickCount64;
+
+                if (now - _lastActivityTicks >= idleMs)
+                {
+                    _log.LogInformation("[{Id}] Idle timeout after {Idle}", Id, idle);
+                    await DisconnectAsync(SshDisconnectReason.ByApplication, "Idle timeout");
+                    _initiator = DisconnectInitiator.Timeout;
+                    return;
+                }
+
+                if (now - _lastReceivedTicks >= keepAliveMs && now - _lastProbeTicks >= keepAliveMs)
+                {
+                    if (_keepalivesOutstanding >= _options.KeepAliveCountMax)
+                    {
+                        _log.LogInformation("[{Id}] No reply to {Count} keepalives – dropping", Id, _keepalivesOutstanding);
+                        await DisconnectAsync(SshDisconnectReason.ByApplication, "No response to keepalives");
+                        _initiator = DisconnectInitiator.Timeout;
+                        return;
+                    }
+                    _lastProbeTicks = now;
+                    Interlocked.Increment(ref _keepalivesOutstanding);
+                    await SendAsync(new SshWriter().Byte(SshMessage.GlobalRequest).String("keepalive@openssh.com").Boolean(true), ct);
+                }
+            }
+        }
+        catch (OperationCanceledException) { /* session closing */ }
+        catch (Exception e) when (e is IOException or ObjectDisposedException) { /* transport gone */ }
     }
 
     private async ValueTask DispatchAsync(byte[] payload, CancellationToken ct)

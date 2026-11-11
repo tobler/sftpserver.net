@@ -34,7 +34,7 @@ host an SFTP server, with your own authentication and your own storage behind it
 
 | Area | Implemented |
 |---|---|
-| Transport | Binary packet protocol, strict KEX (Terrapin mitigation), client- and server-initiated rekey, packet size limits |
+| Transport | Binary packet protocol, strict KEX (Terrapin mitigation), client- and server-initiated rekey, packet size limits, keepalive / dead-peer detection, idle timeout |
 | Key exchange | `mlkem768x25519-sha256` (post-quantum hybrid, FIPS 203 / RFC 10042), `curve25519-sha256` (+ `@libssh.org`), `ecdh-sha2-nistp256/384/521` |
 | Host keys | `ssh-ed25519`, `ecdsa-sha2-nistp256/384/521`, `rsa-sha2-256`, `rsa-sha2-512` (PKCS#8/PEM and OpenSSH `-----BEGIN OPENSSH PRIVATE KEY-----` files) |
 | Ciphers | `chacha20-poly1305@openssh.com`, `aes128-gcm@openssh.com`, `aes256-gcm@openssh.com`, `aes128/192/256-ctr` |
@@ -130,6 +130,11 @@ A successful login yields a `ClaimsPrincipal` (`session.User`) that you can use 
 
 Relevant options: `MaxAuthenticationAttempts` (default 6), `FailedAuthenticationDelay` (500 ms),
 `AuthenticationTimeout` (60 s).
+
+To bound long-lived connections, set `KeepAliveInterval` (send `keepalive@openssh.com` after that much
+silence and drop the peer after `KeepAliveCountMax` unanswered probes) and/or `IdleTimeout` (drop a session
+with no channel traffic in either direction for that long). Both default to `TimeSpan.Zero` (off); the server
+always answers a client's own keepalives regardless.
 
 ### Events
 
@@ -258,7 +263,7 @@ Rst.Ssh        Connection layer   channels, window/flow control, subsystem & exe
   verification run under SharpFuzz/libFuzzer, and a cross-platform robustness suite feeds tens of
   thousands of random and malformed inputs per parser on every test run (`tests/Rst.Ssh.Fuzz`).
 
-Known gaps: no independent third-party security review yet, no idle timeout.
+Known gaps: no independent third-party security review yet.
 A local process could swap a symlink between check and use in `LocalFileSystem` (TOCTOU); this only
 matters if other local users can write into the SFTP root – SFTP clients cannot create symlinks.
 
@@ -306,7 +311,7 @@ The parsers are fuzzed with SharpFuzz/libFuzzer and a cross-platform robustness 
 
 ## Roadmap
 
-1. Passphrase-protected OpenSSH keys (bcrypt KDF), idle timeout, keepalive
+1. Passphrase-protected OpenSSH keys (bcrypt KDF)
 2. Implementation of the metadata + blob file system (IPFS)
 3. Interop with WinSCP, FileZilla, Cyberduck, SSH.NET, Paramiko
 4. Independent third-party security review

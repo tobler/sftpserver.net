@@ -44,6 +44,9 @@ var builder = SshServer.CreateBuilder()
         o.Logger = loggerFactory.CreateLogger("rstssh");
         o.FailedAuthenticationDelay = TimeSpan.FromMilliseconds(50);
         if (Environment.GetEnvironmentVariable("REKEY_BYTES") is { } rk) o.RekeyAfterBytes = long.Parse(rk);
+        if (Environment.GetEnvironmentVariable("IDLE_TIMEOUT_MS") is { } idle) o.IdleTimeout = TimeSpan.FromMilliseconds(long.Parse(idle));
+        if (Environment.GetEnvironmentVariable("KEEPALIVE_MS") is { } ka) o.KeepAliveInterval = TimeSpan.FromMilliseconds(long.Parse(ka));
+        if (Environment.GetEnvironmentVariable("KEEPALIVE_MAX") is { } kam) o.KeepAliveCountMax = int.Parse(kam);
     })
     .UsePasswordAuthentication((u, p) => users.TryGetValue(u, out var pw) && pw == p)
     .UsePublicKeyAuthentication((user, key) => authorizedBlobs.Contains(Convert.ToBase64String(key.Blob.Span)))

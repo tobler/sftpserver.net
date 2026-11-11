@@ -54,7 +54,7 @@ internal sealed class SshChannel : ISshChannel
         if (data.Length > _localMaxPacket + 1024 || data.Length > Interlocked.Read(ref _localWindowRemaining))
             throw new SshProtocolException("Client exceeded the channel window");
         Interlocked.Add(ref _localWindowRemaining, -data.Length);
-        if (data.Length > 0) _incoming.Writer.TryWrite(data);
+        if (data.Length > 0) { _session.NoteActivity(); _incoming.Writer.TryWrite(data); }
     }
 
     public void OnEof() => _incoming.Writer.TryComplete();
@@ -137,6 +137,7 @@ internal sealed class SshChannel : ISshChannel
 
                 var chunk = (int)Math.Min(Math.Min(window, _remoteMaxPacket), data.Length);
                 Interlocked.Add(ref _remoteWindow, -chunk);
+                _session.NoteActivity();
                 await _session.SendAsync(new SshWriter(chunk + 16).Byte(SshMessage.ChannelData).UInt32(RemoteId).Binary(data.Span[..chunk]), ct);
                 data = data[chunk..];
             }
