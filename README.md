@@ -51,7 +51,13 @@ Tested against **OpenSSH 9.6** (`ssh` and `sftp`) on Linux with every combinatio
 
 ## Quick start
 
-Requirements: .NET 8 SDK.
+Add the package to your project (targets `net8.0` and `net10.0`):
+
+```bash
+dotnet add package Rst.Ssh
+```
+
+Or build and run from source (requires the .NET 8 SDK):
 
 ```bash
 dotnet test                                   # unit tests
@@ -313,7 +319,6 @@ The parsers are fuzzed with SharpFuzz/libFuzzer and a cross-platform robustness 
 
 1. Passphrase-protected OpenSSH keys (bcrypt KDF)
 2. Independent third-party security review
-3. A NuGet.org release (the package multi-targets `net8.0;net10.0` and builds via `dotnet pack`)
 
 ---
 
