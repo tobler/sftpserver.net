@@ -362,7 +362,24 @@ internal sealed partial class SshSession : ISshSession
         var clientPublic = r.ReadBinaryArray();
 
         byte[] serverPublic, sharedSecret;
-        if (kex.Kex.StartsWith("curve25519", StringComparison.Ordinal))
+        if (kex.Kex == "mlkem768x25519-sha256")
+        {
+            // RFC 10042: C_INIT = C_PK2 (ML-KEM-768 ek) ‖ C_PK1 (X25519 pub); S_REPLY = S_CT2 (ct) ‖ S_PK1.
+            const int ekLen = MlKem768.EncapsKeyLength;
+            if (clientPublic.Length != ekLen + 32)
+                throw new SshProtocolException("Invalid mlkem768x25519 C_INIT length", SshDisconnectReason.KeyExchangeFailed);
+
+            var (kPq, ciphertext) = MlKem768.Encapsulate(clientPublic.AsSpan(0, ekLen));   // also runs the FIPS 203 §7.2 key check
+            var (xPriv, xPub) = X25519.GenerateKeyPair();
+            var kCl = X25519.ScalarMult(xPriv, clientPublic.AsSpan(ekLen, 32));
+            if (kCl.All(b => b == 0)) throw new SshProtocolException("Invalid X25519 result", SshDisconnectReason.KeyExchangeFailed);
+
+            serverPublic = [.. ciphertext, .. xPub];
+            sharedSecret = SHA256.HashData([.. kPq, .. kCl]);     // K = SHA256(K_PQ ‖ K_CL)
+            CryptographicOperations.ZeroMemory(kPq);
+            CryptographicOperations.ZeroMemory(kCl);
+        }
+        else if (kex.Kex.StartsWith("curve25519", StringComparison.Ordinal))
         {
             if (clientPublic.Length != 32) throw new SshProtocolException("Invalid Curve25519 key", SshDisconnectReason.KeyExchangeFailed);
             var (priv, pub) = X25519.GenerateKeyPair();
@@ -396,7 +413,11 @@ internal sealed partial class SshSession : ISshSession
 
         var hashAlgorithm = Internal.Algorithms.KexHash(kex.Kex);
         var hostKeyBlob = kex.HostKey.PublicKeyBlob;
-        var k = new SshWriter().MPIntFromUnsigned(sharedSecret).ToArray();   // K as mpint (with length prefix)
+        // The PQ hybrid encodes K as an SSH string (RFC 10042 §2.4 – K is a hash output, not an integer);
+        // the classical methods encode it as an mpint (RFC 4253).
+        var k = kex.Kex == "mlkem768x25519-sha256"
+            ? new SshWriter().Binary(sharedSecret).ToArray()
+            : new SshWriter().MPIntFromUnsigned(sharedSecret).ToArray();
 
         var exchange = new SshWriter(1024)
             .String(ClientVersion).String(_serverVersion)

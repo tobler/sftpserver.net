@@ -7,6 +7,7 @@ internal static class Algorithms
 {
     public static readonly string[] KeyExchange =
     [
+        "mlkem768x25519-sha256",
         "curve25519-sha256", "curve25519-sha256@libssh.org",
         "ecdh-sha2-nistp256", "ecdh-sha2-nistp384", "ecdh-sha2-nistp521",
     ];
@@ -59,7 +60,7 @@ internal static class Algorithms
 
     public static HashAlgorithmName KexHash(string kex) => kex switch
     {
-        "curve25519-sha256" or "curve25519-sha256@libssh.org" or "ecdh-sha2-nistp256" => HashAlgorithmName.SHA256,
+        "mlkem768x25519-sha256" or "curve25519-sha256" or "curve25519-sha256@libssh.org" or "ecdh-sha2-nistp256" => HashAlgorithmName.SHA256,
         "ecdh-sha2-nistp384" => HashAlgorithmName.SHA384,
         "ecdh-sha2-nistp521" => HashAlgorithmName.SHA512,
         _ => throw new SshProtocolException($"Unknown key exchange {kex}"),

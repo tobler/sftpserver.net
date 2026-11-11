@@ -1,8 +1,10 @@
 # rstsftp – SSH / SFTP server library for .NET
 
 A self-contained SSH-2 server with an SFTP subsystem, written from scratch in C# for .NET 8+.
-No native libraries and no third-party crypto: everything is built on the .NET base class library
-(plus `Microsoft.Extensions.Logging.Abstractions` for logging).
+No native libraries and no third-party crypto: it uses the .NET base class library where it provides
+the primitive (AES, SHA-2, ECDH/ECDSA, RSA) and implements the rest from scratch (X25519, Ed25519,
+ChaCha20/Poly1305, ML-KEM-768 and the SHA-3/SHAKE it needs). The only package dependency is
+`Microsoft.Extensions.Logging.Abstractions`.
 
 The goal is an embeddable component with a few lines of code to
 host an SFTP server, with your own authentication and your own storage behind it.
@@ -33,7 +35,7 @@ host an SFTP server, with your own authentication and your own storage behind it
 | Area | Implemented |
 |---|---|
 | Transport | Binary packet protocol, strict KEX (Terrapin mitigation), client- and server-initiated rekey, packet size limits |
-| Key exchange | `curve25519-sha256` (+ `@libssh.org`), `ecdh-sha2-nistp256/384/521` |
+| Key exchange | `mlkem768x25519-sha256` (post-quantum hybrid, FIPS 203 / RFC 10042), `curve25519-sha256` (+ `@libssh.org`), `ecdh-sha2-nistp256/384/521` |
 | Host keys | `ssh-ed25519`, `ecdsa-sha2-nistp256/384/521`, `rsa-sha2-256`, `rsa-sha2-512` (PEM files) |
 | Ciphers | `chacha20-poly1305@openssh.com`, `aes128-gcm@openssh.com`, `aes256-gcm@openssh.com`, `aes128/192/256-ctr` |
 | MACs | `hmac-sha2-256`, `hmac-sha2-512`, and their `-etm@openssh.com` variants |
@@ -244,6 +246,11 @@ Rst.Ssh        Connection layer   channels, window/flow control, subsystem & exe
   accesses depend on secret data. Verified against the RFC 7748 vectors (including the 1,000-iteration test)
   and 1,000 random inputs against an independent `BigInteger` reference.
 - **ECDH** public keys are validated by the platform when imported; all-zero X25519 results are rejected.
+- **Post-quantum** `mlkem768x25519-sha256` combines ML-KEM-768 (FIPS 203) with X25519 per RFC 10042, so a
+  recorded session stays confidential against a future quantum "harvest-now, decrypt-later" attacker as long as
+  one of the two primitives holds. ML-KEM-768, ChaCha20/Poly1305 and the required SHA-3/SHAKE (Keccak) are
+  implemented from scratch (the platform ships no SHA-3 on macOS), validated against FIPS 202/203 and
+  RFC 8439 vectors and end-to-end against OpenSSH. The encapsulation key is checked per FIPS 203 §7.2.
 - **MACs** are compared in constant time; packet lengths, padding and channel windows are validated, and
   oversized packets close the connection.
 - **SFTP paths** are normalized centrally (`SftpPath`), so `..` can never leave the user's root.
@@ -299,12 +306,11 @@ The parsers are fuzzed with SharpFuzz/libFuzzer and a cross-platform robustness 
 
 ## Roadmap
 
-1. Post-quantum hybrid key exchange (`mlkem768x25519-sha256`) – OpenSSH ≥ 10.1 warns without it
-2. OpenSSH private key format, idle timeout, keepalive
-3. Implementation of the metadata + blob file system (IPFS)
-4. Interop with WinSCP, FileZilla, Cyberduck, SSH.NET, Paramiko; Windows server testing
-5. Independent third-party security review
-6. A NuGet.org release and multi-targeting `net8.0;net10.0` (the package builds via `dotnet pack`)
+1. OpenSSH private key format, idle timeout, keepalive
+2. Implementation of the metadata + blob file system (IPFS)
+3. Interop with WinSCP, FileZilla, Cyberduck, SSH.NET, Paramiko; Windows server testing
+4. Independent third-party security review
+5. A NuGet.org release and multi-targeting `net8.0;net10.0` (the package builds via `dotnet pack`)
 
 ---
 
