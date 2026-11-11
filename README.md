@@ -4,7 +4,7 @@ A self-contained SSH-2 server with an SFTP subsystem, written from scratch in C#
 No native libraries and no third-party crypto: everything is built on the .NET base class library
 (plus `Microsoft.Extensions.Logging.Abstractions` for logging).
 
-The goal is an embeddable component in the spirit of Rebex File Server: a few lines of code to
+The goal is an embeddable component with a few lines of code to
 host an SFTP server, with your own authentication and your own storage behind it.
 
 ---
