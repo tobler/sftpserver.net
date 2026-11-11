@@ -2,7 +2,9 @@ name: release
 
 # Publishes the NuGet package when a version tag is pushed, e.g.:
 #   git tag v0.1.0 && git push origin v0.1.0
-# Requires a repository secret NUGET_API_KEY (Settings → Secrets and variables → Actions).
+# Uses NuGet.org Trusted Publishing (OIDC) – no API key secret to manage. It requires a
+# trusted-publishing policy on nuget.org for this repo/workflow (owner tobler, repo
+# sftpserver.net, workflow file release.yml) owned by the nuget.org user below.
 
 on:
   push:
@@ -10,6 +12,7 @@ on:
       - 'v*'
 
 permissions:
+  id-token: write      # required: GitHub issues the OIDC token NuGet exchanges for a short-lived key
   contents: read
 
 jobs:
@@ -39,9 +42,16 @@ jobs:
       - name: Pack
         run: dotnet pack src/Rst.Ssh/Rst.Ssh.csproj -c Release --no-build -o artifacts -p:Version="${GITHUB_REF_NAME#v}"
 
+      # Trusted Publishing: exchange the OIDC token for a short-lived NuGet API key.
+      - name: NuGet login (OIDC)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: smt0812          # the nuget.org account that owns the trusted-publishing policy
+
       - name: Push to NuGet.org
         run: >
           dotnet nuget push "artifacts/*.nupkg"
-          --api-key "${{ secrets.NUGET_API_KEY }}"
+          --api-key "${{ steps.login.outputs.NUGET_API_KEY }}"
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate
