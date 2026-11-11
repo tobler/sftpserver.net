@@ -36,7 +36,7 @@ host an SFTP server, with your own authentication and your own storage behind it
 |---|---|
 | Transport | Binary packet protocol, strict KEX (Terrapin mitigation), client- and server-initiated rekey, packet size limits |
 | Key exchange | `mlkem768x25519-sha256` (post-quantum hybrid, FIPS 203 / RFC 10042), `curve25519-sha256` (+ `@libssh.org`), `ecdh-sha2-nistp256/384/521` |
-| Host keys | `ssh-ed25519`, `ecdsa-sha2-nistp256/384/521`, `rsa-sha2-256`, `rsa-sha2-512` (PEM files) |
+| Host keys | `ssh-ed25519`, `ecdsa-sha2-nistp256/384/521`, `rsa-sha2-256`, `rsa-sha2-512` (PKCS#8/PEM and OpenSSH `-----BEGIN OPENSSH PRIVATE KEY-----` files) |
 | Ciphers | `chacha20-poly1305@openssh.com`, `aes128-gcm@openssh.com`, `aes256-gcm@openssh.com`, `aes128/192/256-ctr` |
 | MACs | `hmac-sha2-256`, `hmac-sha2-512`, and their `-etm@openssh.com` variants |
 | Authentication | Password and public-key (`ssh-ed25519`, `rsa-sha2-256/512`, `ecdsa-sha2-nistp256/384/521`) via callback or `ISshAuthenticator`, attempt limit, failure delay, login timeout, partial (multi-factor) results |
@@ -306,7 +306,7 @@ The parsers are fuzzed with SharpFuzz/libFuzzer and a cross-platform robustness 
 
 ## Roadmap
 
-1. OpenSSH private key format, idle timeout, keepalive
+1. Passphrase-protected OpenSSH keys (bcrypt KDF), idle timeout, keepalive
 2. Implementation of the metadata + blob file system (IPFS)
 3. Interop with WinSCP, FileZilla, Cyberduck, SSH.NET, Paramiko
 4. Independent third-party security review

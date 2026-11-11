@@ -38,12 +38,16 @@ public abstract class HostKey : IDisposable
 
     public static HostKey GenerateEd25519() => new Ed25519HostKey(Ed25519.GenerateKeyPair().Seed);
 
-    /// <summary>Loads a key in PEM format (PKCS#8 "BEGIN PRIVATE KEY" for Ed25519/ECDSA/RSA, or "BEGIN EC/RSA PRIVATE KEY").</summary>
-    /// <remarks>The OpenSSH-specific format ("BEGIN OPENSSH PRIVATE KEY") will follow later.</remarks>
+    /// <summary>
+    /// Loads a key in PEM format: the OpenSSH format ("BEGIN OPENSSH PRIVATE KEY", unencrypted),
+    /// PKCS#8 ("BEGIN PRIVATE KEY") for Ed25519/ECDSA/RSA, or the legacy "BEGIN EC/RSA PRIVATE KEY".
+    /// </summary>
     public static HostKey LoadPem(string pem)
     {
         if (pem.Contains("BEGIN OPENSSH PRIVATE KEY"))
-            throw new NotSupportedException("The OpenSSH key format is not supported yet – please use PEM (ssh-keygen -m PEM).");
+            return OpenSshPrivateKey.TryImport(pem, out var ossh)
+                ? ossh
+                : throw new SshProtocolException("Malformed OPENSSH PRIVATE KEY");
 
         if (pem.Contains("RSA PRIVATE KEY")) { var r = RSA.Create(); r.ImportFromPem(pem); return new RsaHostKey(r); }
         if (pem.Contains("EC PRIVATE KEY")) { var e = ECDsa.Create(); e.ImportFromPem(pem); return new EcdsaHostKey(e); }
