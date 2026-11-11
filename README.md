@@ -308,7 +308,7 @@ The parsers are fuzzed with SharpFuzz/libFuzzer and a cross-platform robustness 
 
 1. OpenSSH private key format, idle timeout, keepalive
 2. Implementation of the metadata + blob file system (IPFS)
-3. Interop with WinSCP, FileZilla, Cyberduck, SSH.NET, Paramiko; Windows server testing
+3. Interop with WinSCP, FileZilla, Cyberduck, SSH.NET, Paramiko
 4. Independent third-party security review
 5. A NuGet.org release and multi-targeting `net8.0;net10.0` (the package builds via `dotnet pack`)
 
